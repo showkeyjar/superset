@@ -15,6 +15,10 @@ import traceback
 import uuid
 import zlib
 
+import sys
+reload(sys)
+sys.setdefaultencoding('utf8')
+
 from collections import OrderedDict, defaultdict
 from datetime import datetime, timedelta
 

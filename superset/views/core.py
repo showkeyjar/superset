@@ -1,3 +1,4 @@
+#coding=utf-8
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -11,11 +12,16 @@ import pickle
 import re
 import time
 import traceback
+import pymysql.cursors
+
+import sys
+reload(sys)
+sys.setdefaultencoding('utf8')
 
 import sqlalchemy as sqla
 
 from flask import (
-    g, request, redirect, flash, Response, render_template, Markup)
+    g, request, redirect, flash, Response, render_template, Markup,jsonify)
 from flask_appbuilder import expose
 from flask_appbuilder.actions import action
 from flask_appbuilder.models.sqla.interface import SQLAInterface
@@ -2292,3 +2298,49 @@ def caravel(url):  # noqa
 
 
 # ---------------------------------------------------------------------
+configChat = {
+    'host': '192.168.18.6',
+    'port': 3306,
+    'user': 'root',
+    'password': 'password',
+    'db': 'usrdata',
+    'charset': 'utf8',
+    'cursorclass': pymysql.cursors.DictCursor,
+}
+
+@app.route('/chat', methods=['GET', 'POST'])
+def chat():
+    cid = request.form.get('cid',0)
+    key=request.form.get('keyword','你怎么了')
+    tlist=[]
+    clist = []
+    #sql="select * from t_conversation where input like '%你怎么%' group by cid having count(*)>2 limit 20"
+    sql = "select a.* from a_conversation a left join t_conversation t on a.id=t.cid where t.input like '%"+key+"%' group by t.cid order by id desc limit 50"
+    # 创建连接
+    connection = pymysql.connect(**configChat)
+    # 执行sql语句
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(sql)
+            tlist = cursor.fetchall()
+            sql1 = 'select * from t_conversation where cid=%s limit 200'
+            cursor.execute(sql1,cid)
+            clist=cursor.fetchall()
+    finally:
+        connection.close()
+    return render_template("chat/index.htm",cid=cid,key=key,tlist=tlist,clist = clist)
+
+@app.route('/chat/s/<cid>')
+def show(cid=0):
+    clist = []
+    connection = pymysql.connect(**configChat)
+    # 执行sql语句
+    try:
+        with connection.cursor() as cursor:
+            #sql1 = "select cid,input,output,date_format(datetime,'%Y-%m-%d %h:%i:%s') as datetime from t_conversation where cid=%s"
+            sql1 = "select * from t_conversation where cid=%s limit 200"
+            cursor.execute(sql1,cid)
+            clist=cursor.fetchall()
+    finally:
+        connection.close()
+    return jsonify(clist)
