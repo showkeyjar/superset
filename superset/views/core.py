@@ -4,6 +4,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from collections import defaultdict
 from datetime import datetime, timedelta
 import json
 import logging
@@ -1204,8 +1205,10 @@ class Superset(BaseSupersetView):
             .filter_by(id=db_id)
             .one()
         )
+        schemas = database.all_schema_names()
+        schemas = self.schemas_accessible_by_user(database, schemas)
         return Response(
-            json.dumps({'schemas': database.all_schema_names()}),
+            json.dumps({'schemas': schemas}),
             mimetype="application/json")
 
     @api
@@ -1635,7 +1638,12 @@ class Superset(BaseSupersetView):
             qry = qry.filter_by(slug=dashboard_id)
 
         dash = qry.one()
-        datasources = {slc.datasource for slc in dash.slices}
+        datasources = set()
+        for slc in dash.slices:
+            datasource = slc.datasource
+            if datasource:
+                datasources.add(datasource)
+
         for datasource in datasources:
             if datasource and not self.datasource_access(datasource):
                 flash(
@@ -2180,7 +2188,6 @@ class Superset(BaseSupersetView):
             .one()
         )
         roles = {}
-        from collections import defaultdict
         permissions = defaultdict(set)
         for role in user.roles:
             perms = set()
